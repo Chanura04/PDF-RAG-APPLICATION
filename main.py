@@ -33,4 +33,9 @@ inngest.fast_api.serve(app,inngest_client,[rag_ingest_pdf])
 
 
 
+
+# run qdrant docker db= docker run -d --name qdrant -p 633:6333 -v "$(pwd)/qdrant_storage:/qdrant/storage" qdrant/qdrant
+
+
+
 # npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
