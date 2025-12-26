@@ -8,7 +8,7 @@ class RAGUpsertResult(pydantic.BaseModel):
     ingested: int
 
 class RAGSearchResult(pydantic.BaseModel):
-    results: list[str]
+    contexts: list[str]
     sources: list[str]
 
 class RAGQueryResult(pydantic.BaseModel):
