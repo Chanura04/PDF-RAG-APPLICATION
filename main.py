@@ -73,11 +73,16 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     )
 
     context_block = "\n\n".join(f"- {c}" for c in found.contexts)
+    # user_content = (
+    #     "Use the following context to answer the question.\n\n"
+    #     f"Context:\n{context_block}\n\n"
+    #     f"Question: {question}\n"
+    #     "Answer concisely using the context above."
+    # )
     user_content = (
-        "Use the following context to answer the question.\n\n"
         f"Context:\n{context_block}\n\n"
-        f"Question: {question}\n"
-        "Answer concisely using the context above."
+        f"Question: {question}\n\n"
+        "Final answer only:"
     )
 
     # import httpx
@@ -122,7 +127,15 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         messages=[
                 {
                 "role": "user",
-                "content": "You answer questions using only the provided context."
+                "content": (
+    "You must answer using ONLY the provided context.\n"
+    "Return ONLY the final answer.\n"
+    "DO NOT explain your reasoning.\n"
+    "DO NOT show thoughts, analysis, or commentary.\n"
+    "DO NOT restate the question.\n"
+    "Answer in 1–2 concise sentences."
+)
+
                 },
                 {
                       "role": "user",
