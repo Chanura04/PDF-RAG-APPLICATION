@@ -52,7 +52,7 @@ async def rag_ingest_pdf(event: inngest.Context):
     trigger=inngest.TriggerEvent(event="rag/query_pdf_ai")
 
 
-    
+
 )
 async def rag_query_pdf_ai(ctx: inngest.Context):
     def _search(question: str, top_k: int,source_id: str ) -> RAGSearchResult:
@@ -80,35 +80,84 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         "Answer concisely using the context above."
     )
 
-    import httpx
+    # import httpx
+    #
+    # OLLAMA_CHAT_URL = "http://localhost:11434/v1/chat/completions"
+    # OLLAMA_LLM = "deepseek-r1:8b"  # or "deepseek-r1:8b"  llama3.2:3b
+    #
+    #
+    # async with httpx.AsyncClient(timeout=300) as client:
+    #         response = await client.post(
+    #             OLLAMA_CHAT_URL,
+    #             json={
+    #                 "model": OLLAMA_LLM,
+    #                 "messages": [
+    #                     {
+    #                         "role": "system",
+    #                         "content": "You answer questions using only the provided context."
+    #                     },
+    #                     {
+    #                         "role": "user",
+    #                         "content": user_content
+    #                     }
+    #                 ],
+    #                 "temperature": 0.2,
+    #                 "max_tokens": 1024
+    #             }
+    #         )
+    #         response.raise_for_status()
+    #         data = response.json()
+    #         answer = data["choices"][0]["message"]["content"].strip()
+    #         return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
 
-    OLLAMA_CHAT_URL = "http://localhost:11434/v1/chat/completions"
-    OLLAMA_LLM = "deepseek-r1:8b"  # or "deepseek-r1:8b"  llama3.2:3b
+    from openai import OpenAI
 
+    client = OpenAI(
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_key="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"
+    )
 
-    async with httpx.AsyncClient(timeout=300) as client:
-            response = await client.post(
-                OLLAMA_CHAT_URL,
-                json={
-                    "model": OLLAMA_LLM,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You answer questions using only the provided context."
-                        },
-                        {
-                            "role": "user",
-                            "content": user_content
-                        }
-                    ],
-                    "temperature": 0.2,
-                    "max_tokens": 1024
+    completion = client.chat.completions.create(
+        model="deepseek-ai/deepseek-v3.2",
+        messages=[
+                {
+                "role": "user",
+                "content": "You answer questions using only the provided context."
+                },
+                {
+                      "role": "user",
+                      "content": user_content
                 }
-            )
-            response.raise_for_status()
-            data = response.json()
-            answer = data["choices"][0]["message"]["content"].strip()
-            return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
+                ],
+        temperature=1,
+        top_p=0.95,
+        max_tokens=8192,
+        extra_body={"chat_template_kwargs": {"thinking": True}},
+        stream=True
+    )
+
+    # for chunk in completion:
+    #     if not getattr(chunk, "choices", None):
+    #         continue
+    #     reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
+    #     if reasoning:
+    #         print(reasoning, end="")
+    #     if chunk.choices[0].delta.content is not None:
+    #         print(chunk.choices[0].delta.content, end="")
+    answer_parts = []
+    for chunk in completion:
+        if not getattr(chunk, "choices", None):
+            continue
+
+        reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
+        if reasoning:
+            answer_parts.append(reasoning)
+
+        if chunk.choices[0].delta.content is not None:
+            answer_parts.append(chunk.choices[0].delta.content)
+
+    answer = "".join(answer_parts).strip()
+    return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
 
     # adapter = ai.openai.Adapter(
     #     auth_key=os.getenv("OPENAI_API_KEY"),
