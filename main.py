@@ -13,7 +13,7 @@ from custom_types import RAGSearchResult,RAGQueryResult,RAGChunkAndSrc,RAGUpsert
 load_dotenv()
 
 inngest_client=inngest.Inngest(
-    app_id="rag_app",
+    app_id="rag_app_2",
     logger=logging.getLogger("uvicorn"),
     is_production=False,
     serializer=inngest.PydanticSerializer()
@@ -27,7 +27,9 @@ inngest_client=inngest.Inngest(
 async def rag_ingest_pdf(event: inngest.Context):
     def load(event:inngest.Context)->RAGChunkAndSrc:
         pdf_path = event.event.data["pdf_path"]
-        source_id = event.event.data.get("source_id", pdf_path)
+        # source_id = event.event.data.get("source_id", pdf_path)
+        source_id = event.event.data["source_id"]
+
         chunks = load_and_chunk_pdf(pdf_path)
         return RAGChunkAndSrc(chunks=chunks, src_id=source_id)
 
@@ -48,18 +50,27 @@ async def rag_ingest_pdf(event: inngest.Context):
 @inngest_client.create_function(
     fn_id="RAG: Query PDF",
     trigger=inngest.TriggerEvent(event="rag/query_pdf_ai")
+
+
+    
 )
 async def rag_query_pdf_ai(ctx: inngest.Context):
-    def _search(question: str, top_k: int = 5) -> RAGSearchResult:
+    def _search(question: str, top_k: int,source_id: str ) -> RAGSearchResult:
         query_vec = embed_texts([question])[0]#TAKE FIRST RESULT
         store = QdrantStorage()
-        found = store.search(query_vec, top_k)
-        return RAGSearchResult(contexts=found["contexts"], sources=found["sources"])
+        found = store.search(query_vec, top_k,source_id=source_id)
+        return RAGSearchResult(contexts=found["contexts"], sources=found["sources"],source_id=source_id)
 
     question = ctx.event.data["question"]
     top_k = int(ctx.event.data.get("top_k", 5))
+    source_id = ctx.event.data.get("source_id")
 
-    found = await ctx.step.run("embed-and-search", lambda: _search(question, top_k), output_type=RAGSearchResult)
+    # found = await ctx.step.run("embed-and-search", lambda: _search(question, top_k), output_type=RAGSearchResult)
+    found = await ctx.step.run(
+        "embed-and-search",
+        lambda: _search(question, top_k, source_id),
+        output_type=RAGSearchResult
+    )
 
     context_block = "\n\n".join(f"- {c}" for c in found.contexts)
     user_content = (
@@ -69,33 +80,61 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         "Answer concisely using the context above."
     )
 
-    adapter = ai.openai.Adapter(
-        auth_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o-mini"
-    )
+    import httpx
 
-    res = await ctx.step.ai.infer(
-        "llm-answer",
-        adapter=adapter,
-        body={
-            "max_tokens": 1024,
-            "temperature": 0.2,
-            "messages": [
-                {"role": "system", "content": "You answer questions using only the provided context."},
-                {"role": "user", "content": user_content}
-            ]
-        }
-    )
+    OLLAMA_CHAT_URL = "http://localhost:11434/v1/chat/completions"
+    OLLAMA_LLM = "deepseek-r1:8b"  # or "deepseek-r1:8b"  llama3.2:3b
 
-    answer = res["choices"][0]["message"]["content"].strip()
-    return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
+
+    async with httpx.AsyncClient(timeout=300) as client:
+            response = await client.post(
+                OLLAMA_CHAT_URL,
+                json={
+                    "model": OLLAMA_LLM,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You answer questions using only the provided context."
+                        },
+                        {
+                            "role": "user",
+                            "content": user_content
+                        }
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 1024
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            answer = data["choices"][0]["message"]["content"].strip()
+            return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
+
+    # adapter = ai.openai.Adapter(
+    #     auth_key=os.getenv("OPENAI_API_KEY"),
+    #     model="gpt-4o-mini"
+    # )
+    #
+    # res = await ctx.step.ai.infer(
+    #     "llm-answer",
+    #     adapter=adapter,
+    #     body={
+    #         "max_tokens": 1024,
+    #         "temperature": 0.2,
+    #         "messages": [
+    #             {"role": "system", "content": "You answer questions using only the provided context."},
+    #             {"role": "user", "content": user_content}
+    #         ]
+    #     }
+    # )
+
+    # answer = res["choices"][0]["message"]["content"].strip()
+    # return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
 
 app = FastAPI()
 
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
-app=FastAPI()
 
-inngest.fast_api.serve(app,inngest_client,[rag_ingest_pdf])
 
 
 
@@ -108,3 +147,6 @@ inngest.fast_api.serve(app,inngest_client,[rag_ingest_pdf])
 
 
 #ingest web-    npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
+
+
+#uv run uvicorn main:app
