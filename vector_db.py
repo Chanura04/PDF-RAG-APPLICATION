@@ -55,29 +55,3 @@ class QdrantStorage:
             "contexts": context,
             "sources": list(sources)
         }
-    # def search(self, query_vec, top_k, source_id=None):
-    #     search_filter = None
-    #     if source_id:
-    #         search_filter = {
-    #             "must": [
-    #                 {
-    #                     "key": "source",
-    #                     "match": {"value": source_id}
-    #                 }
-    #             ]
-    #         }
-    #
-    #     hits = self.client.search(
-    #         collection_name="docs",
-    #         query_vector=query_vec,
-    #         limit=top_k,
-    #         with_payload=True,
-    #         query_filter=search_filter
-    #     )
-    #
-    #     contexts = [h.payload["text"] for h in hits]
-    #     sources = list({h.payload["source"] for h in hits})
-    #     return {"contexts": contexts, "sources": sources}
-    #
-
-

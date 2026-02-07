@@ -58,19 +58,6 @@ st.divider()
 st.title("Ask a question about your PDFs")
 
 
-# async def send_rag_query_event(question: str, top_k: int) -> None:
-#     client = get_inngest_client()
-#     result = await client.send(
-#         inngest.Event(
-#             name="rag/query_pdf_ai",
-#             data={
-#                 "question": question,
-#                 "top_k": top_k,
-#             },
-#         )
-#     )
-#
-#     return result[0]
 async def send_rag_query_event(question: str, top_k: int, source_id: str) -> None:
     client = get_inngest_client()
     result = await client.send(
@@ -122,14 +109,6 @@ with st.form("rag_query_form"):
     top_k = st.number_input("How many chunks to retrieve", min_value=1, max_value=20, value=5, step=1)
     submitted = st.form_submit_button("Ask")
 
-    # if submitted and question.strip():
-    #     with st.spinner("Sending event and generating answer..."):
-    #         # Fire-and-forget event to Inngest for observability/workflow
-    #         event_id = asyncio.run(send_rag_query_event(question.strip(), int(top_k)))
-    #         # Poll the local Inngest API for the run's output
-    #         output = wait_for_run_output(event_id)
-    #         answer = output.get("answer", "")
-    #         sources = output.get("sources", [])
     if submitted and question.strip():
         with st.spinner("Sending event and generating answer..."):
             source_id = st.session_state.get("last_uploaded")
