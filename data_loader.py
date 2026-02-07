@@ -45,11 +45,12 @@
 import requests
 from llama_index.readers.file import PDFReader
 from llama_index.core.node_parser import SentenceSplitter
+from sentence_transformers import SentenceTransformer
 
 splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=200)
 
-OLLAMA_URL = "http://localhost:11434/v1/embeddings"
-EMBED_MODEL = "mxbai-embed-large"
+# OLLAMA_URL = "http://localhost:11434/v1/embeddings"
+# EMBED_MODEL = "mxbai-embed-large"
 
 
 def load_and_chunk_pdf(path: str):
@@ -60,16 +61,16 @@ def load_and_chunk_pdf(path: str):
         chunks.extend(splitter.split_text(t))
     return chunks
 
-
+embed_model = SentenceTransformer(
+    "BAAI/bge-large-en-v1.5"
+     # change to "cpu" if no GPU
+)
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    response = requests.post(
-        OLLAMA_URL,
-        json={
-            "model": EMBED_MODEL,
-            "input": texts
-        },
-        timeout=120
+    embeddings = embed_model.encode(
+        texts,
+        batch_size=32,
+        show_progress_bar=True,
+        normalize_embeddings=True
     )
-    response.raise_for_status()
-    return [item["embedding"] for item in response.json()["data"]]
+    return embeddings.tolist()

@@ -9,6 +9,7 @@ import datetime
 from data_loader import load_and_chunk_pdf,embed_texts
 from vector_db import QdrantStorage
 from custom_types import RAGSearchResult,RAGQueryResult,RAGChunkAndSrc,RAGUpsertResult
+from openai import OpenAI
 
 load_dotenv()
 
@@ -85,37 +86,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         "Final answer only:"
     )
 
-    # import httpx
-    #
-    # OLLAMA_CHAT_URL = "http://localhost:11434/v1/chat/completions"
-    # OLLAMA_LLM = "deepseek-r1:8b"  # or "deepseek-r1:8b"  llama3.2:3b
-    #
-    #
-    # async with httpx.AsyncClient(timeout=300) as client:
-    #         response = await client.post(
-    #             OLLAMA_CHAT_URL,
-    #             json={
-    #                 "model": OLLAMA_LLM,
-    #                 "messages": [
-    #                     {
-    #                         "role": "system",
-    #                         "content": "You answer questions using only the provided context."
-    #                     },
-    #                     {
-    #                         "role": "user",
-    #                         "content": user_content
-    #                     }
-    #                 ],
-    #                 "temperature": 0.2,
-    #                 "max_tokens": 1024
-    #             }
-    #         )
-    #         response.raise_for_status()
-    #         data = response.json()
-    #         answer = data["choices"][0]["message"]["content"].strip()
-    #         return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
-
-    from openai import OpenAI
+   
 
     client = OpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
@@ -125,23 +96,21 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     completion = client.chat.completions.create(
         model="deepseek-ai/deepseek-v3.2",
         messages=[
-                {
-                "role": "user",
-                "content": (
-    "You must answer using ONLY the provided context.\n"
-    "Return ONLY the final answer.\n"
-    "DO NOT explain your reasoning.\n"
-    "DO NOT show thoughts, analysis, or commentary.\n"
-    "DO NOT restate the question.\n"
-    "Answer in 1–2 concise sentences."
-)
-
-                },
-                {
-                      "role": "user",
-                      "content": user_content
-                }
-                ],
+    {
+        "role": "system",
+        "content": (
+            "Answer using ONLY the provided context. "
+            "Return ONLY the final answer. "
+            "Do NOT explain reasoning. "
+            "Answer in 1-2 concise sentences."
+        )
+    },
+    {
+        "role": "user",
+        "content": user_content
+    }
+]
+,
         temperature=1,
         top_p=0.95,
         max_tokens=8192,
@@ -149,23 +118,13 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         stream=True
     )
 
-    # for chunk in completion:
-    #     if not getattr(chunk, "choices", None):
-    #         continue
-    #     reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
-    #     if reasoning:
-    #         print(reasoning, end="")
-    #     if chunk.choices[0].delta.content is not None:
-    #         print(chunk.choices[0].delta.content, end="")
+
     answer_parts = []
     for chunk in completion:
         if not getattr(chunk, "choices", None):
             continue
 
-        reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
-        if reasoning:
-            answer_parts.append(reasoning)
-
+       
         if chunk.choices[0].delta.content is not None:
             answer_parts.append(chunk.choices[0].delta.content)
 
@@ -209,6 +168,8 @@ inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
 
 
 #ingest web-    npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
-
+# npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
 
 #uv run uvicorn main:app
+
+# pip install --upgrade qdrant-client
