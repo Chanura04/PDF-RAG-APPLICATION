@@ -21,7 +21,7 @@ A **Retrieval-Augmented Generation (RAG)** system for PDFs that allows you to up
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/your-username/pdf-rag-app.git
+git clone https://github.com/Chanura04/PDF-RAG-APPLICATION.git
 cd pdf-rag-app
 ```
 
