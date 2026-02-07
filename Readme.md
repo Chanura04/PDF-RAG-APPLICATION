@@ -1,56 +1,70 @@
-PDF-RAG Document Question Answering System
-A high-performance Retrieval-Augmented Generation (RAG) system that allows users to upload PDF documents and receive context-aware answers. This project leverages event-driven architecture for seamless document ingestion and state-of-the-art LLMs for precise querying.
+# PDF-RAG Document Question Answering System
 
-🚀 Features
-Smart Ingestion: Automatically splits PDF documents into manageable chunks for optimized processing.
+A **Retrieval-Augmented Generation (RAG)** system for PDFs that allows you to upload documents and ask questions, retrieving context-aware answers from the content.
 
-Vector Search: Generates high-dimensional embeddings using SentenceTransformers and stores them in Qdrant for lightning-fast retrieval.
+**Technologies:** Python, FastAPI, Streamlit, Qdrant, SentenceTransformers, NVIDIA DeepSeek, Inngest
 
-Event-Driven Pipeline: Utilizes Inngest and FastAPI to handle background ingestion tasks, ensuring the UI remains responsive.
+---
 
-AI-Powered Answers: Get concise, context-aware responses powered by the NVIDIA DeepSeek LLM.
+## Features
 
-Interactive UI: A clean, real-time interface built with Streamlit for effortless document management and chatting.
+- Upload PDF documents and automatically split them into chunks for processing.
+- Generate embeddings for chunks using **SentenceTransformers** and store them in **Qdrant** vector database.
+- Event-driven ingestion and query handling using **FastAPI** and **Inngest** triggers.
+- Ask questions about your PDFs and get concise, context-aware answers powered by **NVIDIA DeepSeek LLM**.
+- User-friendly **Streamlit interface** for uploading PDFs and querying the system in real-time.
 
-🛠️ Technologies
-Language: Python
+---
 
-API Framework: FastAPI
+## Getting Started
 
-Frontend: Streamlit
+1. **Clone the repository**
 
-Vector Database: Qdrant
-
-Orchestration: Inngest
-
-Embeddings: SentenceTransformers
-
-LLM: NVIDIA DeepSeek
-
-🏁 Getting Started
-1. Clone the Repository
-Bash
+```bash
 git clone https://github.com/your-username/pdf-rag-app.git
 cd pdf-rag-app
+```
+
 2. Install Dependencies
-Bash
+```bash
 pip install -r requirements.txt
+```
+
 3. Start the Backend
-Bash
+```bash
 uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
 4. Run Inngest Dev Server
 For local development and event tracking:
-
-Bash
+```bash
 npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
+```
+
 5. Launch the Frontend
-Bash
+```bash
 streamlit run frontend.py
-📖 Usage
-Upload: Drop a PDF into the Streamlit sidebar.
+```
 
-Process: The system triggers an event via Inngest to chunk and embed the text.
+📖 Usage Guide
+```
 
-Query: Once processing is complete, type your question in the chat box.
+📥 1. Upload a PDF
+  Upload your PDF using the sidebar in the Streamlit UI.
 
-Insight: The system retrieves the most relevant chunks and generates an answer with cited sources.
+⚙️ 2. Automated Processing
+  The system will:
+  - Extract text
+  - Chunk it
+  - Generate embeddings
+  - Store vectors in Qdrant (Image/loader shows progress)
+
+💬 3. Ask Questions
+    Use the chat box to ask anything about your PDF.
+
+🔍 4. Get Contextual Insights
+  The system will:
+    - Retrieve the most similar chunks
+    - Generate a response using DeepSeek
+    - Provide citations referencing specific PDF sections
+```
