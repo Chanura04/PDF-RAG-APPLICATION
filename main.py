@@ -52,8 +52,6 @@ async def rag_ingest_pdf(event: inngest.Context):
     fn_id="RAG: Query PDF",
     trigger=inngest.TriggerEvent(event="rag/query_pdf_ai")
 
-
-
 )
 async def rag_query_pdf_ai(ctx: inngest.Context):
     def _search(question: str, top_k: int,source_id: str ) -> RAGSearchResult:
@@ -83,13 +81,21 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
 
    
 
+    # client = OpenAI(
+    #     base_url="https://integrate.api.nvidia.com/v1",
+    #     api_key="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"
+    # )
+
+    
     client = OpenAI(
-        base_url="https://integrate.api.nvidia.com/v1",
-        api_key="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"
+    base_url = "https://integrate.api.nvidia.com/v1",
+    api_key = os.getenv("NVIDIA_API_KEY")
     )
 
+
     completion = client.chat.completions.create(
-        model="deepseek-ai/deepseek-v3.2",
+        # model="deepseek-ai/deepseek-v3.2",
+        model="openai/gpt-oss-20b",
         messages=[
     {
         "role": "system",
@@ -108,7 +114,8 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
 ,
         temperature=1,
         top_p=0.95,
-        max_tokens=8192,
+        # max_tokens=8192,
+        max_tokens=4096,
         extra_body={"chat_template_kwargs": {"thinking": True}},
         stream=True
     )

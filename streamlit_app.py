@@ -1,7 +1,6 @@
 import asyncio
 from pathlib import Path
 import time
-
 import streamlit as st
 import inngest
 from dotenv import load_dotenv
@@ -11,66 +10,14 @@ import requests
 load_dotenv()
 
 st.set_page_config(
-    page_title="RAG PDF Assistant", 
-    page_icon="📚", 
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    page_title="RAG PDF Assistant",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# Custom CSS for better styling
-st.markdown("""
-<style>
-    
-    .main-header {
-        font-size: 18px;
-        font-weight: 700;
-        text-align: center;
- 
-      
- 
-        color: white;
-        font-size: 28px;
-    }
-    .subtitle {
-        color: white;
-        font-size: 18px;
-        margin-bottom: 2rem;
-        text-align: center;
-    }
-    .upload-section {
-        background: #f8f9fa;
-        padding: 2rem;
-        border-radius: 12px;
-        margin-bottom: 2rem;
-    }
-    .query-section {
-        background: #f0f7ff;
-        padding: 2rem;
-        border-radius: 12px;
-    }
-    .success-badge {
-        background: #d4edda;
-        color: #155724;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #28a745;
-        margin: 1rem 0;
-    }
-    .source-item {
-        background: #fff;
-        padding: 0.75rem;
-        border-left: 3px solid #667eea;
-        margin: 0.5rem 0;
-        border-radius: 4px;
-    }
-    div[data-testid="stFileUploader"] {
-        border: 2px dashed #667eea;
-        border-radius: 8px;
-        padding: 1rem;
-    }
-</style>
-""", unsafe_allow_html=True)
 
+# ── Inngest helpers ──────────────────────────────────────────────────────────
 
 @st.cache_resource
 def get_inngest_client() -> inngest.Inngest:
@@ -81,8 +28,7 @@ def save_uploaded_pdf(file) -> Path:
     uploads_dir = Path("uploads")
     uploads_dir.mkdir(parents=True, exist_ok=True)
     file_path = uploads_dir / file.name
-    file_bytes = file.getbuffer()
-    file_path.write_bytes(file_bytes)
+    file_path.write_bytes(file.getbuffer())
     return file_path
 
 
@@ -91,10 +37,7 @@ async def send_rag_ingest_event(pdf_path: Path) -> None:
     await client.send(
         inngest.Event(
             name="rag/ingest_pdf",
-            data={
-                "pdf_path": str(pdf_path.resolve()),
-                "source_id": pdf_path.name,
-            },
+            data={"pdf_path": str(pdf_path.resolve()), "source_id": pdf_path.name},
         )
     )
 
@@ -107,11 +50,12 @@ def fetch_runs(event_id: str) -> list[dict]:
     url = f"{_inngest_api_base()}/events/{event_id}/runs"
     resp = requests.get(url)
     resp.raise_for_status()
-    data = resp.json()
-    return data.get("data", [])
+    return resp.json().get("data", [])
 
 
-def wait_for_run_output(event_id: str, timeout_s: float = 120.0, poll_interval_s: float = 0.5) -> dict:
+def wait_for_run_output(
+    event_id: str, timeout_s: float = 120.0, poll_interval_s: float = 0.5
+) -> dict:
     start = time.time()
     last_status = None
     while True:
@@ -125,109 +69,177 @@ def wait_for_run_output(event_id: str, timeout_s: float = 120.0, poll_interval_s
             if status in ("Failed", "Cancelled"):
                 raise RuntimeError(f"Function run {status}")
         if time.time() - start > timeout_s:
-            raise TimeoutError(f"Timed out waiting for run output (last status: {last_status})")
+            raise TimeoutError(f"Timed out waiting for run (last status: {last_status})")
         time.sleep(poll_interval_s)
 
 
-async def send_rag_query_event(question: str, top_k: int, source_id: str) -> None:
+async def send_rag_query_event(question: str, top_k: int, source_id: str):
     client = get_inngest_client()
     result = await client.send(
         inngest.Event(
             name="rag/query_pdf_ai",
-            data={
-                "question": question,
-                "top_k": top_k,
-                "source_id": source_id,
-            },
+            data={"question": question, "top_k": top_k, "source_id": source_id},
         )
     )
     return result[0]
 
 
-# Header
-st.markdown('<p class="main-header" style="font-size: 38px; text-align: center;">📚 RAG PDF Assistant</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Upload your documents and ask questions powered by AI</p>', unsafe_allow_html=True)
+# ── Session state ────────────────────────────────────────────────────────────
 
-# Upload Section
-# st.markdown('<div class="upload-section">', unsafe_allow_html=True)
-st.subheader("📤 Step 1: Upload PDF")
-uploaded = st.file_uploader(
-    "Choose a PDF file to analyze",
-    type=["pdf"],
-    accept_multiple_files=False,
-    help="Upload a PDF document to make it searchable"
-)
+if "messages" not in st.session_state:
+    st.session_state.messages = []       # [{role, content, sources}]
+if "documents" not in st.session_state:
+    st.session_state.documents = []      # [{name, chunks, timestamp}]
+if "active_doc" not in st.session_state:
+    st.session_state.active_doc = None
 
-if uploaded is not None:
-    with st.spinner("🔄 Processing your document..."):
-        path = save_uploaded_pdf(uploaded)
-        asyncio.run(send_rag_ingest_event(path))
-        st.session_state["last_uploaded"] = path.name
-        time.sleep(0.3)
-    
+
+# ── SIDEBAR ──────────────────────────────────────────────────────────────────
+
+with st.sidebar:
+    st.title("📚 RAG PDF Assistant")
     st.markdown(
-        f'<div class="success-badge">✅ Successfully ingested: <strong>{path.name}</strong></div>',
-        unsafe_allow_html=True
-    )
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Query Section
-# st.markdown('<div class="query-section">', unsafe_allow_html=True)
-st.subheader("💬 Step 2: Ask Questions")
-
-# Check if a file has been uploaded
-if "last_uploaded" in st.session_state:
-    st.caption(f"📄 Currently querying: **{st.session_state['last_uploaded']}**")
-else:
-    st.info("👆 Please upload a PDF first before asking questions")
-
-col1, col2 = st.columns([3, 1])
-
-with col1:
-    question = st.text_input(
-        "Your question",
-        placeholder="e.g., What is the main topic of this document?",
-        label_visibility="collapsed"
+        "Upload PDF documents and ask questions powered by AI retrieval."
     )
 
-with col2:
+    st.divider()
+
+    # ── Upload
+    st.header("📤 Upload Document")
+    uploaded = st.file_uploader(
+        "Choose a PDF file",
+        type=["pdf"],
+        accept_multiple_files=False,
+    )
+
+    if uploaded is not None:
+        already = any(d["name"] == uploaded.name for d in st.session_state.documents)
+        if not already:
+            with st.spinner("⏳ Ingesting document…"):
+                path = save_uploaded_pdf(uploaded)
+                asyncio.run(send_rag_ingest_event(path))
+                time.sleep(0.3)
+            st.session_state.documents.append(
+                {
+                    "name": uploaded.name,
+                    "chunks": 5,  # placeholder; replace with real count if API returns it
+                    "timestamp": time.strftime("%b %d, %H:%M"),
+                }
+            )
+            st.session_state.active_doc = uploaded.name
+            st.session_state.messages = []
+            st.success(f"✅ Ingested: **{uploaded.name}**")
+            st.rerun()
+
+    st.divider()
+
+    # ── Document list
+    st.header("📄 Documents")
+    if st.session_state.documents:
+        for doc in st.session_state.documents:
+            is_active = doc["name"] == st.session_state.active_doc
+            label = f"{'▶ ' if is_active else ''}{doc['name']}"
+            btn_type = "primary" if is_active else "secondary"
+            if st.button(label, key=f"doc_{doc['name']}", use_container_width=True, type=btn_type):
+                if not is_active:
+                    st.session_state.active_doc = doc["name"]
+                    st.session_state.messages = []
+                    st.rerun()
+            st.caption(f"🧩 {doc['chunks']} chunks  ·  🕐 {doc['timestamp']}")
+    else:
+        st.info("No documents uploaded yet.")
+
+    st.divider()
+
+    # ── Settings
+    st.header("⚙️ Settings")
     top_k = st.number_input(
-        "Chunks",
+        "Chunks to retrieve",
         min_value=1,
         max_value=20,
         value=5,
         step=1,
-        help="Number of relevant chunks to retrieve"
+        help="How many document chunks to retrieve per query",
     )
 
-ask_button = st.button("🔍 Get Answer", type="primary", use_container_width=True)
+    st.divider()
 
-if ask_button and question.strip():
-    if "last_uploaded" not in st.session_state:
-        st.error("⚠️ Please upload a PDF first!")
-    else:
-        with st.spinner("🤔 Analyzing your document and generating answer..."):
-            source_id = st.session_state.get("last_uploaded")
+    # ── How it works
+    st.header("ℹ️ How it works")
+    st.markdown(
+        """
+        1. **Upload** a PDF document  
+        2. The document is **chunked & indexed** automatically  
+        3. **Ask questions** in the chat  
+        4. Relevant chunks are **retrieved** and an AI answer is generated  
+        """
+    )
+
+    st.divider()
+
+    if st.session_state.messages:
+        if st.button("🗑️ Clear Chat History", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
+
+
+# ── MAIN CHAT AREA ───────────────────────────────────────────────────────────
+
+active = st.session_state.active_doc
+
+if active:
+    st.title(f"💬 Chat — {active}")
+else:
+    st.title("💬 RAG PDF Chat")
+
+st.markdown("Ask any question about your document and get AI-powered answers!")
+
+# Show existing chat history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+        if message.get("sources"):
+            with st.expander("📑 Sources", expanded=False):
+                for s in message["sources"]:
+                    st.markdown(f"- {s}")
+
+# Guard: no doc selected
+if not active:
+    st.info("👈 Upload a PDF in the sidebar to get started.")
+    st.stop()
+
+# Chat input
+if user_query := st.chat_input("Ask a question about your document…"):
+    # Show user message
+    st.session_state.messages.append(
+        {"role": "user", "content": user_query, "sources": []}
+    )
+    with st.chat_message("user"):
+        st.markdown(user_query)
+
+    # Generate answer
+    with st.chat_message("assistant"):
+        with st.spinner("🔍 Retrieving relevant chunks and generating answer…"):
+            status_placeholder = st.empty()
+            status_placeholder.info("⏳ Querying document…")
             try:
-                event_id = asyncio.run(send_rag_query_event(question.strip(), int(top_k), source_id))
+                event_id = asyncio.run(
+                    send_rag_query_event(user_query.strip(), int(top_k), active)
+                )
                 output = wait_for_run_output(event_id)
-                answer = output.get("answer", "")
+                answer = output.get("answer", "No answer was generated.")
                 sources = output.get("sources", [])
-
-                st.markdown("---")
-                st.subheader("💡 Answer")
-                if answer:
-                    st.markdown(answer)
-                else:
-                    st.warning("No answer generated")
-                
-                if sources:
-                    st.markdown("---")
-                    st.subheader("📑 Sources")
-                    for s in sources:
-                        st.markdown(f'<div class="source-item">{s}</div>', unsafe_allow_html=True)
-            
             except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+                answer = f"❌ Error: {str(e)}"
+                sources = []
+            status_placeholder.empty()
 
-st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(answer)
+        if sources:
+            with st.expander("📑 Sources", expanded=False):
+                for s in sources:
+                    st.markdown(f"- {s}")
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": answer, "sources": sources}
+    )

@@ -3,7 +3,8 @@ from llama_index.readers.file import PDFReader
 from llama_index.core.node_parser import SentenceSplitter
 from sentence_transformers import SentenceTransformer
 
-splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=200)
+# splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=200)
+splitter = SentenceSplitter(chunk_size=100, chunk_overlap=50)
 
 
 def load_and_chunk_pdf(path: str):
@@ -16,7 +17,7 @@ def load_and_chunk_pdf(path: str):
 
 embed_model = SentenceTransformer(
     "BAAI/bge-large-en-v1.5"
-     # change to "cpu" if no GPU
+     
 )
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
