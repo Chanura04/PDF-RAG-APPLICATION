@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG PDF Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; }
+        .sidebar { background-color: #ffffff; height: 100vh; padding: 25px; border-right: 1px solid #e0e0e0; }
+        #chat-container { height: 60vh; overflow-y: auto; background: white; border-radius: 10px; padding: 20px; border: 1px solid #eee; margin-bottom: 20px; }
+        .message { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .user { align-items: flex-end; }
+        .assistant { align-items: flex-start; }
+        .bubble { padding: 10px 15px; border-radius: 18px; max-width: 80%; }
+        .user .bubble { background-color: #007bff; color: white; }
+        .assistant .bubble { background-color: #f1f1f1; color: #333; }
+        .sources { font-size: 0.75rem; color: #777; margin-top: 5px; }
+        .doc-item { cursor: pointer; transition: background 0.2s; }
+        .doc-item:hover { background-color: #f8f9fa; }
+        .active-doc { border-left: 4px solid #007bff; background-color: #e9ecef; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3 sidebar">
+                <h3>📚 PDF Assistant</h3>
+                <p class="text-muted small">Upload and chat with your PDFs.</p>
+                <hr>
+                <h6>📤 Upload PDF</h6>
+                <input type="file" id="fileInput" class="form-control mb-2" accept=".pdf">
+                <button class="btn btn-primary btn-sm w-100" onclick="uploadFile()">Ingest</button>
+                <div id="uploadStatus" class="small mt-2"></div>
+                <hr>
+                <h6>📄 Documents</h6>
+                <div id="docList" class="list-group list-group-flush">
+                    {% for doc in documents %}
+                    <div class="list-group-item doc-item" onclick="setActiveDoc('{{ doc.name }}', this)">
+                        <strong>{{ doc.name }}</strong><br>
+                        <small class="text-muted">{{ doc.timestamp }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-md-9 p-5">
+                <h4 id="chatTitle">💬 Select a document to start</h4>
+                <div id="chat-container"></div>
+                <div class="input-group">
+                    <input type="text" id="userInput" class="form-control" placeholder="Type your question...">
+                    <button class="btn btn-success" onclick="sendMessage()">Ask AI</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSourceId = null;
+
+        async function uploadFile() {
+            const input = document.getElementById('fileInput');
+            if (!input.files.length) return alert("Select a file first");
+            
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+            document.getElementById('uploadStatus').innerText = "⏳ Processing...";
+
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('uploadStatus').innerText = "✅ Done!";
+                location.reload(); // Refresh to show new doc in list
+            }
+        }
+
+        function setActiveDoc(name, element) {
+            currentSourceId = name;
+            document.getElementById('chatTitle').innerText = "💬 Chat — " + name;
+            document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active-doc'));
+            element.classList.add('active-doc');
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const question = input.value.trim();
+            if (!question || !currentSourceId) return alert("Select a doc and enter a question");
+
+            addMessage('user', question);
+            input.value = '';
+
+            const res = await fetch('/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question, source_id: currentSourceId, top_k: 5 })
+            });
+            const { event_id } = await res.json();
+            const assistantMsgId = addMessage('assistant', '⏳ AI is thinking...');
+            pollForResult(event_id, assistantMsgId);
+        }
+
+        function addMessage(role, text, sources = []) {
+            const container = document.getElementById('chat-container');
+            const id = 'msg-' + Date.now();
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.id = id;
+            
+            let sourceHtml = sources.length ? `<div class="sources">Sources: ${sources.join(', ')}</div>` : '';
+            div.innerHTML = `<div class="bubble">${text}${sourceHtml}</div>`;
+            
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        function pollForResult(eventId, msgId) {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/poll/${eventId}`);
+                const data = await res.json();
+                
+                if (data.status === 'Completed') {
+                    clearInterval(interval);
+                    updateAssistantMessage(msgId, data.output.answer, data.output.sources);
+                } else if (data.status === 'Failed') {
+                    clearInterval(interval);
+                    updateAssistantMessage(msgId, "❌ Error generating response.");
+                }
+            }, 1000);
+        }
+
+        function updateAssistantMessage(id, text, sources = []) {
+            const div = document.getElementById(id);
+            let sourceHtml = sources.length ? `<div class="sources">Sources: ${sources.join(', ')}</div>` : '';
+            div.querySelector('.bubble').innerHTML = text + sourceHtml;
+        }
+    </script>
+</body>
+</html>
+```
+
+### How to run this version:
+1. Ensure your Inngest dev server is running: `npx inngest-cli@latest dev`.
+2. Ensure your background worker (`main.py`) is running: `uvicorn main:app --port 8000`.
+3. Run this Flask app: `python app.py`.
+4. Open `http://127.0.0.1:5000` in your browser.
+
+<!--
+[PROMPT_SUGGESTION]How do I add user authentication to this Flask RAG app?[/PROMPT_SUGGESTION]
+[PROMPT_SUGGESTION]How can I make the chat interface stream responses from the AI in Flask?[/PROMPT_SUGGESTION]
