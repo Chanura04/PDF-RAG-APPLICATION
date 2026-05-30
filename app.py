@@ -37,6 +37,7 @@ def index():
         session["documents"] = []
     return render_template("index.html", documents=session["documents"])
 
+
 @app.route("/upload", methods=["POST"])
 async def upload_pdf():
     if "file" not in request.files:

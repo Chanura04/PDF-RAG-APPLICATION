@@ -16,8 +16,7 @@ def load_and_chunk_pdf(path: str):
     return chunks
 
 embed_model = SentenceTransformer(
-    "BAAI/bge-large-en-v1.5"
-     
+    "BAAI/bge-large-en-v1.5" 
 )
 
 def embed_texts(texts: list[str]) -> list[list[float]]:

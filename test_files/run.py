@@ -8,6 +8,8 @@ client.delete_collection("docs")
 # # Load your model
 # embed_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
 
+
+
 # # Sample texts
 # texts = [
 #     "Artificial intelligence is transforming technology.",

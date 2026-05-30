@@ -12,7 +12,6 @@ class RAGSearchResult(pydantic.BaseModel):
     sources: list[str]
     source_id: str
 
-
 class RAGQueryResult(pydantic.BaseModel):
     answer: str
     sources: list[str]

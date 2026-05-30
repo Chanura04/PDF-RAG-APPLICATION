@@ -149,7 +149,7 @@ inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
 # docker run -p 6333:6333 qdrant/qdrant
 
 
-#ingest web-    npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
+#ingest web-  npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
 # npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest --no-discovery
 
 #uv run uvicorn main:app

@@ -53,6 +53,7 @@
             </div>
         </div>
     </div>
+    
 
     <script>
         let currentSourceId = null;
@@ -83,19 +84,33 @@
         async function sendMessage() {
             const input = document.getElementById('userInput');
             const question = input.value.trim();
-            if (!question || !currentSourceId) return alert("Select a doc and enter a question");
+            if (!question || !currentSourceId) {
+                return alert("Please select a document and type a question.");
+            }
 
             addMessage('user', question);
             input.value = '';
 
-            const res = await fetch('/query', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question, source_id: currentSourceId, top_k: 5 })
-            });
-            const { event_id } = await res.json();
-            const assistantMsgId = addMessage('assistant', '⏳ AI is thinking...');
-            pollForResult(event_id, assistantMsgId);
+            const assistantMsgId = addMessage('assistant', '⏳ Thinking...');
+
+            try {
+                const res = await fetch('/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, source_id: currentSourceId })
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    updateAssistantMessage(assistantMsgId, `❌ ${data.error}`);
+                } else {
+                    updateAssistantMessage(assistantMsgId, data.answer || "No response received.", data.sources || []);
+                }
+            } catch (err) {
+                console.error(err);
+                updateAssistantMessage(assistantMsgId, "❌ Network error. Please try again.");
+            }
         }
 
         function addMessage(role, text, sources = []) {
@@ -137,13 +152,9 @@
 </body>
 </html>
 ```
+`npx inngest-cli@latest dev`.
+background worker (`main.py`)  `uvicorn main:app --port 8000`.
+ Flask app: `python app.py`.
+`http://127.0.0.1:5000` 
+```
 
-### How to run this version:
-1. Ensure your Inngest dev server is running: `npx inngest-cli@latest dev`.
-2. Ensure your background worker (`main.py`) is running: `uvicorn main:app --port 8000`.
-3. Run this Flask app: `python app.py`.
-4. Open `http://127.0.0.1:5000` in your browser.
-
-<!--
-[PROMPT_SUGGESTION]How do I add user authentication to this Flask RAG app?[/PROMPT_SUGGESTION]
-[PROMPT_SUGGESTION]How can I make the chat interface stream responses from the AI in Flask?[/PROMPT_SUGGESTION]

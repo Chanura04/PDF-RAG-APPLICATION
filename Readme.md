@@ -16,6 +16,7 @@ A **Retrieval-Augmented Generation (RAG)** system for PDFs that allows you to up
 
 ---
 
+
 [![Watch the video](https://img.youtube.com/vi/kq1CdeekXIA/0.jpg)](https://www.youtube.com/watch?v=kq1CdeekXIA)
 
 

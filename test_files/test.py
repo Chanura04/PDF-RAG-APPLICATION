@@ -11,6 +11,7 @@ load_dotenv()
 # for m in models.data:
 #     print(m.id)
 
+
 from openai import OpenAI
 
 client = OpenAI(

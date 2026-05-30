@@ -17,8 +17,6 @@ st.set_page_config(
 )
 
 
-# ── Inngest helpers ──────────────────────────────────────────────────────────
-
 @st.cache_resource
 def get_inngest_client() -> inngest.Inngest:
     return inngest.Inngest(app_id="rag_app_2", is_production=False)
@@ -84,7 +82,7 @@ async def send_rag_query_event(question: str, top_k: int, source_id: str):
     return result[0]
 
 
-# ── Session state ────────────────────────────────────────────────────────────
+# ── Session state 
 
 if "messages" not in st.session_state:
     st.session_state.messages = []       # [{role, content, sources}]
@@ -94,7 +92,7 @@ if "active_doc" not in st.session_state:
     st.session_state.active_doc = None
 
 
-# ── SIDEBAR ──────────────────────────────────────────────────────────────────
+# ── SIDEBAR 
 
 with st.sidebar:
     st.title("📚 RAG PDF Assistant")
@@ -164,16 +162,7 @@ with st.sidebar:
 
     st.divider()
 
-    # ── How it works
-    st.header("ℹ️ How it works")
-    st.markdown(
-        """
-        1. **Upload** a PDF document  
-        2. The document is **chunked & indexed** automatically  
-        3. **Ask questions** in the chat  
-        4. Relevant chunks are **retrieved** and an AI answer is generated  
-        """
-    )
+  
 
     st.divider()
 
@@ -183,7 +172,7 @@ with st.sidebar:
             st.rerun()
 
 
-# ── MAIN CHAT AREA ───────────────────────────────────────────────────────────
+# ── MAIN CHAT AREA
 
 active = st.session_state.active_doc
 
