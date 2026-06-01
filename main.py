@@ -100,6 +100,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     {
         "role": "system",
         "content": (
+            "You are an assistant for answering questions based on provided context. "
             "Answer using ONLY the provided context. "
             "Return ONLY the final answer. "
             "Do NOT explain reasoning. "
@@ -112,7 +113,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     }
 ]
 ,
-        temperature=1,
+        temperature=0.2,
         top_p=0.95,
         # max_tokens=8192,
         max_tokens=4096,
